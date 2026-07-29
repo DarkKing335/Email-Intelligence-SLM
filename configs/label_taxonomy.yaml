@@ -1,0 +1,123 @@
+# ── Label Taxonomy ─────────────────────────────────────────────────────────────
+# Defines the canonical label set, their properties, and the mapping
+# from raw source labels to canonical labels.
+#
+# Any label NOT listed in canonical_labels is treated as unknown.
+# Unknown label behaviour is controlled by normalization.unknown_label_strategy
+# in data_engineering.yaml.
+
+# ── Canonical Labels ───────────────────────────────────────────────────────────
+canonical_labels:
+  respond:
+    description: "Email requires a direct reply from the user."
+    priority: high
+    response_required: true
+    color: red
+
+  fyi:
+    description: "Informational email; no reply needed but worth reading."
+    priority: medium
+    response_required: false
+    color: blue
+
+  archive:
+    description: "Automated or transactional notification; safe to archive."
+    priority: low
+    response_required: false
+    color: gray
+
+  unsubscribe:
+    description: "Marketing or promotional email; user may want to unsubscribe."
+    priority: low
+    response_required: false
+    color: yellow
+
+  spam:
+    description: "Unsolicited or junk email with no legitimate value."
+    priority: low
+    response_required: false
+    color: orange
+
+  security:
+    description: "Security-sensitive email (OTP, password reset, account alert)."
+    priority: high
+    response_required: true
+    color: purple
+
+  billing:
+    description: "Invoice, payment confirmation, or billing notice."
+    priority: high
+    response_required: true
+    color: green
+
+  support:
+    description: "Customer support, help desk, or ticket communication."
+    priority: medium
+    response_required: true
+    color: teal
+
+# ── Source → Canonical Mapping ─────────────────────────────────────────────────
+# Maps labels from the raw source dataset to canonical labels.
+# Keys are lowercased raw labels; values are canonical label names.
+# This list is additive — add new mappings as new source datasets are integrated.
+label_mapping:
+  # ── From email-triage-slm / high-accuracy-email-classifier dataset ──────────
+  spam: spam
+  promotions: unsubscribe
+  verify_code: security
+  updates: fyi
+  forum: fyi
+  social_media: fyi
+
+  # ── Common Gmail / Outlook category names ────────────────────────────────────
+  primary: respond
+  inbox: respond
+  work: respond
+  personal: respond
+  important: respond
+  starred: respond
+
+  # ── Notification / transactional patterns ────────────────────────────────────
+  notifications: archive
+  alerts: security
+  security: security
+  alert: security
+
+  # ── Billing / financial ──────────────────────────────────────────────────────
+  billing: billing
+  payment: billing
+  invoice: billing
+  receipt: billing
+  financial: billing
+
+  # ── Support / service ────────────────────────────────────────────────────────
+  support: support
+  ticket: support
+  help: support
+  service: support
+  customer_service: support
+
+  # ── Marketing / newsletters ──────────────────────────────────────────────────
+  newsletters: unsubscribe
+  marketing: unsubscribe
+  advertisement: unsubscribe
+  ads: unsubscribe
+  deals: unsubscribe
+  offers: unsubscribe
+
+  # ── Junk / spam aliases ───────────────────────────────────────────────────────
+  junk: spam
+  phishing: spam
+  scam: spam
+
+  # ── Informational / FYI aliases ──────────────────────────────────────────────
+  digest: fyi
+  newsletter_digest: fyi
+  community: fyi
+  group: fyi
+
+  # ── Archive aliases ───────────────────────────────────────────────────────────
+  automated: archive
+  transactional: archive
+  system: archive
+  noreply: archive

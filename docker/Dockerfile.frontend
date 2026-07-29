@@ -1,0 +1,46 @@
+# ── Frontend Dashboard Dockerfile ─────────────────────────────────────────────
+# Streamlit-based dashboard for email triage visualisation, model metrics,
+# and experiment tracking review.
+
+FROM python:3.12-slim
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PORT=8501
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install frontend dependencies
+RUN pip install --no-cache-dir \
+    streamlit>=1.31.0 \
+    plotly>=5.18.0 \
+    httpx>=0.27.0 \
+    pydantic>=2.0.0 \
+    pyyaml>=6.0 \
+    python-dotenv>=1.0.0
+
+# Copy project manifest and source
+COPY pyproject.toml /app/
+COPY src/ /app/src/
+COPY configs/ /app/configs/
+
+# Install the local package
+RUN pip install --no-cache-dir -e .
+
+# Expose the dashboard port
+EXPOSE ${PORT}
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/_stcore/health || exit 1
+
+# Start the Streamlit dashboard
+ENTRYPOINT ["streamlit", "run", "src/email_dashboard/app.py", "--server.port", "8501", "--server.address", "0.0.0.0", "--server.headless", "true"]

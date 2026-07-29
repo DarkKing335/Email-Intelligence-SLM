@@ -1,0 +1,133 @@
+# ── Docker Compose — Local Development & Staging ──────────────────────────────
+# Orchestrates all services for the AI Email Assistant platform.
+#
+# Usage:
+#   docker compose up --build -d          # Start all services
+#   docker compose up mlflow postgres -d  # Start only MLflow + DB
+#   docker compose down -v                # Tear down with volumes
+#   docker compose logs -f inference      # Stream inference logs
+
+name: email-intelligence-slm
+
+services:
+  # ── PostgreSQL Database ───────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: slm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-slm_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-slm_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-email_slm}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-slm_user} -d ${POSTGRES_DB:-email_slm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - slm-network
+
+  # ── MLflow Tracking Server ────────────────────────────────────────────────
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.12.2
+    container_name: slm-mlflow
+    restart: unless-stopped
+    command: >
+      mlflow server
+        --host 0.0.0.0
+        --port 5000
+        --backend-store-uri sqlite:///mlflow/mlflow.db
+        --default-artifact-root /mlflow/artifacts
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - slm-network
+
+  # ── Inference Service (FastAPI) ───────────────────────────────────────────
+  inference:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.inference
+    container_name: slm-inference
+    restart: unless-stopped
+    environment:
+      - MODEL_DIR=/app/models
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - LOG_LEVEL=INFO
+    ports:
+      - "8000:8000"
+    volumes:
+      - model_cache:/app/models
+      - hf_cache:/app/.cache/huggingface
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    networks:
+      - slm-network
+
+  # ── Backend API ───────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: slm-api
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-slm_user}:${POSTGRES_PASSWORD:-slm_secret}@postgres:5432/${POSTGRES_DB:-email_slm}
+      - INFERENCE_URL=http://inference:8000
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - LOG_LEVEL=INFO
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      inference:
+        condition: service_healthy
+    networks:
+      - slm-network
+
+  # ── Frontend Dashboard ───────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: slm-frontend
+    restart: unless-stopped
+    environment:
+      - API_URL=http://api:8080
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    ports:
+      - "8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - slm-network
+
+volumes:
+  postgres_data:
+    driver: local
+  mlflow_data:
+    driver: local
+  model_cache:
+    driver: local
+  hf_cache:
+    driver: local
+
+networks:
+  slm-network:
+    driver: bridge

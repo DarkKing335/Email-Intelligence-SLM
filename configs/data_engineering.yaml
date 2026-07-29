@@ -1,0 +1,191 @@
+# ── Data Engineering Pipeline Configuration ───────────────────────────────────
+# All paths are relative to the project root unless stated otherwise.
+# Override any value with a matching environment variable (DATA_RAW_DIR, etc.)
+
+# ── Directories ───────────────────────────────────────────────────────────────
+directories:
+  raw: data/raw
+  processed: data/processed
+  samples: data/samples
+  reports: reports
+  logs: logs
+
+# ── Source ────────────────────────────────────────────────────────────────────
+source:
+  # Primary local CSV dataset
+  primary_csv: data/raw/archive/emails.csv
+  # Sample CSV used for tests and quick runs
+  sample_csv: data/samples/emails_sample.csv
+  # Encoding of the CSV file
+  encoding: utf-8
+  # Number of rows to read per chunk (memory-efficient for large files)
+  chunk_size: 10000
+
+  # Column mapping: maps source CSV columns to internal EmailRecord fields.
+  # Set to null if the column does not exist in the source.
+  column_mapping:
+    email_id: null          # auto-generated if null
+    thread_id: null         # auto-generated if null
+    sender: sender          # raw sender address/domain column
+    subject: subject
+    body: body              # full email body text
+    label: category         # source label column (will be normalized)
+
+# ── Schema Validation ─────────────────────────────────────────────────────────
+validation:
+  # Fields that must be present and non-empty
+  required_fields:
+    - subject
+    - body
+    - label
+  # Maximum character length for body_text (longer records are clipped)
+  max_body_chars: 8000
+  # Minimum character length for body_text (shorter records are rejected)
+  min_body_chars: 10
+  # Maximum character length for subject
+  max_subject_chars: 500
+  # Write rejected records to this report file
+  rejection_report: reports/rejection_report.json
+
+# ── Label Normalization ───────────────────────────────────────────────────────
+normalization:
+  # Path to the label taxonomy configuration
+  taxonomy_file: configs/label_taxonomy.yaml
+  # Behaviour when an unknown label is encountered:
+  #   reject  → drop the record and log it
+  #   default → assign default_label
+  unknown_label_strategy: reject
+  default_label: fyi
+  report_file: reports/normalization_report.json
+
+# ── Cleaning ──────────────────────────────────────────────────────────────────
+cleaning:
+  # ── Deduplication ──────────────────────────────────────────────────────────
+  deduplication:
+    # Remove exact duplicates (identical subject + body hash)
+    remove_exact: true
+    # Remove near-duplicates above cosine similarity threshold (TF-IDF)
+    remove_near_duplicates: true
+    near_duplicate_threshold: 0.95   # 0.0–1.0
+    # Which fields to hash for exact dedup
+    dedup_fields:
+      - subject
+      - body_text
+
+  # ── Text Normalization ─────────────────────────────────────────────────────
+  text_normalization:
+    # Collapse multiple whitespace characters to single space
+    collapse_whitespace: true
+    # Normalize unicode quotes, dashes, and ellipsis to ASCII equivalents
+    normalize_unicode_punctuation: true
+    # Strip HTML tags from body text
+    strip_html: true
+    # Remove common email signature blocks (regex-based)
+    strip_signatures: true
+    # Remove email thread history (quoted reply chains)
+    strip_quoted_reply: true
+
+  # ── PII Redaction ─────────────────────────────────────────────────────────
+  pii_redaction:
+    enabled: true
+    # Replacement token used in place of redacted content
+    replacement_token: "[REDACTED]"
+    patterns:
+      # Email addresses
+      email_address: true
+      # Phone numbers (international formats)
+      phone_number: true
+      # Credit / debit card numbers
+      credit_card: true
+      # US Social Security Numbers
+      ssn: true
+      # IPv4 addresses
+      ip_address: true
+
+  # ── Length Enforcement ────────────────────────────────────────────────────
+  length:
+    # Clip body_text to max_body_chars (set in validation) rather than reject
+    clip_long_bodies: true
+
+  report_file: reports/cleaning_report.json
+
+# ── Augmentation ──────────────────────────────────────────────────────────────
+augmentation:
+  # Global random seed for all augmentation operations (overridden by --seed)
+  random_seed: 42
+  # How many augmented records to create per original record
+  # e.g. 0.5 means 1 augmented record for every 2 originals
+  augmentation_ratio: 0.5
+  # Augmentation strategies to apply (each augmented record uses one strategy)
+  strategies:
+    synonym_substitution:
+      enabled: true
+      # Fraction of eligible words to replace per record
+      substitution_rate: 0.15
+    formatting_variation:
+      enabled: true
+      # Randomly vary greeting/closing style
+      vary_greeting: true
+      vary_closing: true
+    case_variation:
+      enabled: true
+      # Apply to subject line only
+      subject_cases:
+        - title_case
+        - sentence_case
+        - uppercase
+    whitespace_variation:
+      enabled: true
+      # Add or remove leading/trailing blank lines in body
+      vary_paragraph_spacing: true
+  # Labels to skip augmentation for (usually well-represented classes)
+  skip_labels: []
+  report_file: reports/augmentation_report.json
+
+# ── Splitting ─────────────────────────────────────────────────────────────────
+splitting:
+  # Global random seed for splitting (overridden by --seed)
+  random_seed: 42
+  # Split ratios must sum to 1.0
+  train_ratio: 0.80
+  val_ratio: 0.10
+  test_ratio: 0.10
+  # Stratify splits by label to preserve class distribution
+  stratify: true
+  report_file: reports/split_report.json
+
+# ── Versioning ────────────────────────────────────────────────────────────────
+versioning:
+  # Starting version for new projects
+  initial_version: "0.1.0"
+  # Which component to auto-increment: major | minor | patch
+  auto_increment: patch
+  # Store source file hash (SHA-256) in version metadata
+  capture_source_hash: true
+  # Store the full config snapshot in version metadata
+  capture_config_snapshot: true
+  report_file: reports/version_report.json
+
+# ── Export ────────────────────────────────────────────────────────────────────
+export:
+  # Output format: jsonl | csv (jsonl recommended for training pipelines)
+  format: jsonl
+  # Filename pattern inside the version directory
+  train_filename: train.jsonl
+  val_filename: val.jsonl
+  test_filename: test.jsonl
+  version_manifest_filename: version.json
+  # Write atomically (write to .tmp then rename)
+  atomic_write: true
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  level: INFO
+  # Log file inside the logs/ directory
+  log_file: logs/data_engineering.log
+  # Rotate when file exceeds this size
+  rotation: "50 MB"
+  # Keep logs for this many days
+  retention: "7 days"
+  # Write JSON-structured logs to file; pretty console output to stderr
+  json_logs: true

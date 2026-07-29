@@ -1,0 +1,54 @@
+# ── MLOps & Experiment Tracking Configuration ──────────────────────────────────
+
+# ── Experiment Tracking ────────────────────────────────────────────────────────
+tracking:
+  # Selected backend: mlflow | local
+  backend: "local"
+
+  # MLflow specific settings
+  mlflow:
+    tracking_uri: "http://localhost:5000"
+    default_experiment: "email-triage-slm"
+    artifact_location: "mlruns"
+    
+  # Local JSON logger fallback settings
+  local:
+    output_dir: "reports/experiments"
+    pretty_print: true
+
+  # Default environment tags to attach to runs
+  tags:
+    project: "email-intelligence-slm"
+    owner: "fpt-slm-team"
+    environment: "development"  # development | staging | production
+
+# ── Container Registry & Images ────────────────────────────────────────────────
+docker:
+  registry: "ghcr.io/fpt-slm"
+  tags:
+    - "latest"
+    - "dev"
+  
+  services:
+    training:
+      image_name: "email-triage-training"
+      context: "."
+      dockerfile: "docker/Dockerfile.training"
+      
+    inference:
+      image_name: "email-triage-inference"
+      context: "."
+      dockerfile: "docker/Dockerfile.inference"
+      port: 8000
+      
+    api:
+      image_name: "email-agent-api"
+      context: "."
+      dockerfile: "docker/Dockerfile.api"
+      port: 8080
+      
+    frontend:
+      image_name: "email-agent-dashboard"
+      context: "."
+      dockerfile: "docker/Dockerfile.frontend"
+      port: 8501

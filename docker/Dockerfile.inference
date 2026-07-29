@@ -1,0 +1,55 @@
+# ── Inference Service Dockerfile ───────────────────────────────────────────────
+# Lightweight FastAPI container for serving SLM model predictions.
+# Optimised for low-latency inference with minimal image footprint.
+
+FROM python:3.12-slim
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    HUGGINGFACE_HUB_CACHE=/app/.cache/huggingface \
+    MODEL_DIR=/app/models \
+    PORT=8000
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install inference dependencies
+RUN pip install --no-cache-dir \
+    fastapi>=0.109.0 \
+    uvicorn[standard]>=0.27.0 \
+    transformers>=4.38.0 \
+    peft>=0.8.0 \
+    torch>=2.2.0 \
+    accelerate>=0.27.0 \
+    pydantic>=2.0.0 \
+    loguru>=0.7.0 \
+    pyyaml>=6.0 \
+    python-dotenv>=1.0.0
+
+# Copy project manifest and source
+COPY pyproject.toml /app/
+COPY src/ /app/src/
+COPY configs/ /app/configs/
+
+# Install the local package
+RUN pip install --no-cache-dir -e .
+
+# Create directories for model artifacts and cache
+RUN mkdir -p ${MODEL_DIR} ${HUGGINGFACE_HUB_CACHE}
+
+# Expose the inference API port
+EXPOSE ${PORT}
+
+# Health check endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/health || exit 1
+
+# Start the Uvicorn inference server
+ENTRYPOINT ["uvicorn", "email_inference.api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
