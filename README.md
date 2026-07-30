@@ -1,8 +1,14 @@
-# AI Email Assistant — Dataset Engineering Module (Epic 1)
+# AI Email Assistant — Data and Intelligence Services
 
-This project contains the complete, production-ready Data Engineering module for the AI Email Assistant SLM fine-tuning project, implementing User Stories **US-1.1 through US-1.5**.
+This project contains the Data Engineering module for the AI Email Assistant
+SLM fine-tuning project and the API-only Epic 3 email intelligence workflow.
 
 The module uses Clean Architecture layers to clean, normalize, redact, augment, split, and version email datasets starting from a raw CSV (such as the 1.3 GB `emails.csv` corpus) to generate training-ready datasets.
+
+Epic 3 adds a provider-neutral inference gateway, durable email analysis,
+review-queue APIs, editable recommendations and drafts, and approval auditing.
+It runs with a deterministic mock provider until a fine-tuned model is ready.
+See [docs/epic3_email_intelligence.md](docs/epic3_email_intelligence.md).
 
 ---
 
