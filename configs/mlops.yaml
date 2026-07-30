@@ -22,6 +22,43 @@ tracking:
     owner: "fpt-slm-team"
     environment: "development"  # development | staging | production
 
+# ── Model Registry (US-6.4) ──────────────────────────────────────────────────
+# Stores approved model artifacts (LoRA reply-style adapters / checkpoints) with
+# metadata, lineage, and multi-version management.
+model_registry:
+  # Selected backend: local | mlflow
+  backend: "local"
+
+  # Local JSON-file registry (offline / dev / CI)
+  local:
+    root_dir: "models/registry"
+    pretty_print: true
+
+  # MLflow Model Registry (production / staging)
+  mlflow:
+    tracking_uri: "http://localhost:5000"
+
+# ── Health Checks (US-6.6) ────────────────────────────────────────────────────
+# Dependency probes consumed by the `email-mlops health` CLI and by service
+# /health endpoints. `critical: true` deps make readiness UNHEALTHY when down;
+# non-critical deps only DEGRADE it.
+health:
+  service: "email-intelligence-slm"
+  dependencies:
+    mlflow:
+      type: http
+      url: "http://localhost:5000/health"
+      critical: true
+    postgres:
+      type: tcp
+      host: "localhost"
+      port: 5432
+      critical: true
+    inference:
+      type: http
+      url: "http://localhost:8000/health"
+      critical: false
+
 # ── Container Registry & Images ────────────────────────────────────────────────
 docker:
   registry: "ghcr.io/fpt-slm"

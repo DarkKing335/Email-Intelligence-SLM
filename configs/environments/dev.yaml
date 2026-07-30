@@ -1,0 +1,34 @@
+# ── Deployment config: DEV ────────────────────────────────────────────────────
+# Local development. Builds images from source; gates only on core infra.
+environment: dev
+
+compose:
+  files:
+    - "docker-compose.yml"
+  project_name: "email-slm-dev"
+  build: true
+  env:
+    LOG_LEVEL: "DEBUG"
+    POSTGRES_DB: "email_slm_dev"
+
+# Registered adapters to resolve a deployment target for (US-6.4).
+models:
+  - "reply-style-professional"
+  - "reply-style-friendly"
+  - "reply-style-concise"
+require_models: false  # dev may run before any model is registered
+
+# Post-deploy readiness gate (US-6.6).
+health:
+  timeout_seconds: 90
+  interval_seconds: 5
+  dependencies:
+    postgres:
+      type: tcp
+      host: "localhost"
+      port: 5432
+      critical: true
+    mlflow:
+      type: http
+      url: "http://localhost:5000/health"
+      critical: false
