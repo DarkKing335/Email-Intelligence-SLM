@@ -63,6 +63,9 @@ packages = [
 testpaths = ["tests"]
 addopts = "-v --tb=short"
 asyncio_mode = "auto"
+markers = [
+    "integration: live over-HTTP tests that boot real uvicorn servers",
+]
 
 [tool.ruff]
 line-length = 100
