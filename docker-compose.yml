@@ -64,6 +64,12 @@ services:
     container_name: slm-inference
     restart: unless-stopped
     environment:
+      - MODEL_PROVIDER=${MODEL_PROVIDER:-mock}
+      - MODEL_PROVIDER_CLASS=${MODEL_PROVIDER_CLASS:-}
+      - MODEL_ENDPOINT=${MODEL_ENDPOINT:-}
+      - MODEL_API_TOKEN=${MODEL_API_TOKEN:-}
+      - MODEL_NAME=${MODEL_NAME:-epic3-mock}
+      - MODEL_VERSION=${MODEL_VERSION:-development}
       - MODEL_DIR=/app/models
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - LOG_LEVEL=INFO
@@ -90,6 +96,7 @@ services:
       - INFERENCE_URL=http://inference:8000
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - LOG_LEVEL=INFO
+      - AUTO_CREATE_SCHEMA=true
     ports:
       - "8080:8080"
     depends_on:
@@ -102,6 +109,7 @@ services:
 
   # ── Frontend Dashboard ───────────────────────────────────────────────────
   frontend:
+    profiles: ["epic4"]
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
