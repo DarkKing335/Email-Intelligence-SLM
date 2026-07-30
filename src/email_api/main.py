@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
-from sqlalchemy import func, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -193,6 +193,11 @@ def create_app(
         processing_status: str | None = None,
         classification: CanonicalLabel | None = None,
         priority: Priority | None = None,
+        search: str | None = Query(
+            default=None,
+            max_length=200,
+            description="Free-text match on sender, subject, or body (US-4.6).",
+        ),
         limit: int = Query(default=50, ge=1, le=200),
         offset: int = Query(default=0, ge=0),
         session: AsyncSession = Depends(get_session),
@@ -206,6 +211,15 @@ def create_app(
             filters.append(EmailRecordDB.current_classification == classification.value)
         if priority:
             filters.append(EmailRecordDB.current_priority == priority.value)
+        if search and search.strip():
+            term = f"%{search.strip()}%"
+            filters.append(
+                or_(
+                    EmailRecordDB.sender.ilike(term),
+                    EmailRecordDB.subject.ilike(term),
+                    EmailRecordDB.body_text.ilike(term),
+                )
+            )
         total = (
             await session.execute(select(func.count(EmailRecordDB.id)).where(*filters))
         ).scalar_one()
