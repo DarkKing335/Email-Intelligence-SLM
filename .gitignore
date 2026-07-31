@@ -18,10 +18,10 @@ ENV/
 .env.local
 .env.*.local
 
-# ── Data artifacts (large / generated) ───────────────────────────────────────
-data/processed/
-data/raw/
-*.zip
+# ── Data artifacts (large files tracked via Git LFS) ─────────────────────────
+# data/processed/
+# data/raw/
+# *.zip
 reports/
 logs/
 
@@ -54,4 +54,4 @@ desktop.ini
 .ruff_cache/
 
 example_project/
-data/raw/archive.zip
+# data/raw/archive.zip
