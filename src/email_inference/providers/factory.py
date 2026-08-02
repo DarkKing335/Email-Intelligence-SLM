@@ -9,6 +9,8 @@ from email_inference.providers.http import HttpModelProvider
 from email_inference.providers.mock import MockModelProvider
 from email_inference.settings import InferenceSettings
 
+# LocalModelProvider is imported lazily to avoid hard GPU dependency at import time
+
 
 def create_provider(settings: InferenceSettings) -> ModelProvider:
     provider = settings.model_provider.lower().strip()
@@ -26,6 +28,10 @@ def create_provider(settings: InferenceSettings) -> ModelProvider:
             api_token=settings.model_api_token,
             timeout_seconds=settings.model_timeout_seconds,
         )
+    if provider == "local":
+        from email_inference.providers.local import LocalModelProvider  # noqa: PLC0415
+
+        return LocalModelProvider(settings)
     if provider == "custom":
         if not settings.model_provider_class or ":" not in settings.model_provider_class:
             raise ProviderError(

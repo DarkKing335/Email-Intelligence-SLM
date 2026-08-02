@@ -34,7 +34,7 @@ RUN pip install --no-cache-dir \
     pyyaml>=6.0
 
 # Copy project manifest and source
-COPY pyproject.toml /workspace/
+COPY pyproject.toml README.md /workspace/
 COPY src/ /workspace/src/
 COPY configs/ /workspace/configs/
 

@@ -37,7 +37,7 @@ RUN pip install --no-cache-dir \
     passlib[bcrypt]>=1.7.4
 
 # Copy project manifest and source
-COPY pyproject.toml /app/
+COPY pyproject.toml README.md /app/
 COPY src/ /app/src/
 COPY configs/ /app/configs/
 

@@ -42,6 +42,7 @@ frontend = [
 email-data = "cli.main:cli"
 email-mlops = "cli.mlops:cli"
 email-obs = "cli.observability:cli"
+email-train = "cli.training:cli"
 
 [build-system]
 requires = ["hatchling"]
@@ -56,6 +57,7 @@ packages = [
     "src/email_api",
     "src/email_observability",
     "src/email_dashboard",
+    "src/email_training",
     "cli",
 ]
 

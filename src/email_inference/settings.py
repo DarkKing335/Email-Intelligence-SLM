@@ -1,4 +1,4 @@
-"""Inference service settings."""
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -14,4 +14,5 @@ class InferenceSettings(BaseSettings):
     model_timeout_seconds: float = Field(default=30.0, gt=0)
     model_name: str = "epic3-mock"
     model_version: str = "development"
+    model_dir: Path | None = None  # Path to local LoRA adapter (MODEL_PROVIDER=local)
     summary_max_chars: int = Field(default=320, ge=80, le=500)
