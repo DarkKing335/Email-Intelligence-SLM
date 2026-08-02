@@ -1,159 +1,292 @@
-# AI Email Assistant — Dataset Engineering Module (Epic 1)
+# AI Email Intelligence SLM
 
-This project contains the complete, production-ready Data Engineering module for the AI Email Assistant SLM fine-tuning project, implementing User Stories **US-1.1 through US-1.5**.
+A production-grade platform that fine-tunes a Small Language Model (SLM) to intelligently triage, classify, and draft replies to emails — built on **Qwen2.5-7B-Instruct** with a **LoRA adapter**, served via a FastAPI inference gateway, reviewed through a Streamlit dashboard, and orchestrated with a full MLOps stack.
 
-The module uses Clean Architecture layers to clean, normalize, redact, augment, split, and version email datasets starting from a raw CSV (such as the 1.3 GB `emails.csv` corpus) to generate training-ready datasets.
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        AI Email Intelligence SLM                             │
+│                                                                             │
+│  Epic 1              Epic 2               Epic 3           Epic 4 / 5       │
+│  ─────────           ──────────           ───────────       ────────────     │
+│  Data                SLM                 Email             Review           │
+│  Engineering    →    Fine-Tuning    →    Intelligence  →   Dashboard        │
+│  Pipeline            (QLoRA)             API               + Observability  │
+│                                                                             │
+│                       Epic 6: MLOps & Deployment                            │
+│           (Experiment Tracking · Model Registry · Health Checks · CI/CD)    │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Service Map
+
+| Service | Port | Description |
+|:---|:---|:---|
+| `inference` | 8000 | FastAPI — SLM gateway (mock / http / local provider) |
+| `api` | 8080 | FastAPI — Email workflow, PostgreSQL, review queue, audit |
+| `frontend` | 8501 | Streamlit — Review dashboard (Epic 4 profile) |
+| `mlflow` | 5000 | MLflow tracking server |
+| `postgres` | 5432 | PostgreSQL database |
+
+---
+
+## Quick Start (Docker Compose)
+
+```powershell
+# 1. Clone and configure
+cp .env.example .env        # edit secrets if needed
+
+# 2. Start all core services (API + Inference + MLflow + Postgres)
+docker compose up --build -d
+
+# 3. Start the dashboard (separate Epic 4 profile)
+docker compose --profile epic4 up frontend -d
+
+# 4. Verify all services are healthy
+docker compose ps
+```
+
+Open:
+- **Dashboard**: http://localhost:8501
+- **Backend API docs**: http://localhost:8080/docs
+- **Inference API docs**: http://localhost:8000/docs
+- **MLflow UI**: http://localhost:5000
+
+---
+
+## Quick Start (Local Development)
+
+### Prerequisites
+
+- **Python 3.12+**
+- **pip** or **uv** (recommended)
+- **Git LFS** (for data files)
+
+### 1. Install Dependencies
+
+```powershell
+# Using uv (recommended)
+uv sync
+
+# Or pip
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e ".[dev,frontend]"
+```
+
+### 2. Configure Environment
+
+```powershell
+copy .env.example .env
+# Edit .env to set DATABASE_URL, INFERENCE_URL, etc.
+```
+
+### 3. Run Services Locally (two terminals)
+
+```powershell
+# Terminal 1: Inference service (mock model by default)
+python -m uvicorn email_inference.api:app --port 8000
+
+# Terminal 2: Backend API (SQLite by default for local dev)
+python -m uvicorn email_api.main:app --port 8080
+```
+
+### 4. Run Dashboard
+
+```powershell
+$env:API_URL = "http://localhost:8080"
+streamlit run src/email_dashboard/app.py
+```
 
 ---
 
 ## Project Structure
 
 ```
-e:\FPT\Email Intelligence SLM/
-├── cli/
-│   ├── __init__.py
-│   └── main.py                     # Click CLI wrapper
-├── configs/
-│   ├── data_engineering.yaml       # Central pipeline config YAML
-│   └── label_taxonomy.yaml         # Taxonomy classes and mapping definitions
-├── data/
-│   ├── raw/                        # Raw email CSV directories (ignored)
-│   ├── samples/                    # Test-ready CSV and JSONL sample datasets
-│   │   ├── emails_sample.csv       # 100-row generated test email CSV
-│   │   └── emails_sample.jsonl     # 100-row generated test email JSONL
-│   └── processed/                  # Final export targets (v0.1.0/, etc.)
-├── docs/
-│   └── epic1_data_engineering.md   # Architectural details & schema documentation
-├── logs/                           # Pipeline log outputs (JSON formatted)
-├── reports/                        # Stage execution reports
+Email Intelligence SLM/
+├── adapter/                    # Trained LoRA adapter (Qwen2.5-7B)
+│   ├── adapter_config.json     # LoRA config (r=16, alpha=16)
+│   ├── tokenizer.json          # Qwen2.5 tokenizer
+│   ├── chat_template.jinja     # ChatML chat format template
+│   ├── promt.py                # Prompt format reference
+│   └── README.md               # Model card
+│
 ├── src/
-│   └── email_data_engineering/     # Source package
-│       ├── __init__.py
-│       ├── pipeline.py             # Orchestrates the 8-stage pipeline
-│       ├── logging_config.py       # Loguru logger config
-│       ├── domain/                 # Domain logic (Models, Taxonomy validation)
-│       │   ├── models.py
-│       │   └── taxonomy.py
-│       ├── infrastructure/         # File loaders, validators, storage writers
-│       │   ├── loaders.py
-│       │   ├── schema.py
-│       │   └── storage.py
-│       └── application/            # Stage engines (cleaner, augmentor, splitter, etc.)
-│           ├── importer.py
-│           ├── normalizer.py
-│           ├── cleaner.py
-│           ├── augmentor.py
-│           ├── splitter.py
-│           ├── versioner.py
-│           └── exporter.py
-├── tests/                          # Integration and Unit tests
-│   ├── conftest.py
-│   ├── unit/
-│   └── integration/
-├── .env.example                    # Env template
-├── .gitignore                      # Git exclusion rules
-├── pyproject.toml                  # Python manifest
-└── README.md                       # This file
-```
-
----
-
-## Prerequisites
-
-- **Python 3.12+**
-- **uv** (recommended package manager) or standard **pip / virtualenv**
-
----
-
-## Setup & Installation
-
-### 1. Install Dependencies
-
-Using `uv` (recommended):
-```powershell
-# Sync/install all dependencies including developer tools
-uv sync
-```
-
-Or using standard pip:
-```powershell
-python -m venv .venv
-.venv\Scripts\activate
-pip install -e .[dev]
-```
-
-### 2. Configure Environment
-
-Copy the environment template and edit parameters if needed:
-```powershell
-copy .env.example .env
+│   ├── email_data_engineering/ # Epic 1: 8-stage data pipeline
+│   ├── email_training/         # Epic 2: LoRA fine-tuning pipeline
+│   ├── email_intelligence/     # Epic 3: Shared schemas (AnalysisResult, etc.)
+│   ├── email_inference/        # Epic 3: FastAPI inference gateway
+│   │   └── providers/          #   mock | http | local (Unsloth)
+│   ├── email_api/              # Epic 3: Email workflow + review API
+│   ├── email_dashboard/        # Epic 4: Streamlit review dashboard
+│   ├── email_observability/    # Epic 5: Logging, Metrics, Audit Trail
+│   └── email_mlops/            # Epic 6: Experiment tracking, Model Registry,
+│       ├── experiment_tracking/ #          Health checks, Deployer
+│       ├── model_registry/
+│       ├── health/
+│       └── deployment/
+│
+├── cli/
+│   ├── main.py                 # email-data CLI (Epic 1)
+│   ├── training.py             # email-train CLI (Epic 2)
+│   ├── mlops.py                # email-mlops CLI (Epic 6)
+│   └── observability.py        # email-obs CLI (Epic 5)
+│
+├── configs/
+│   ├── data_engineering.yaml   # Epic 1 pipeline config
+│   ├── mlops.yaml              # Epic 6 MLOps config
+│   ├── observability.yaml      # Epic 5 logging/metrics config
+│   └── environments/           # Per-environment deploy configs
+│
+├── docker/
+│   ├── Dockerfile.training     # CUDA 12.1 + PyTorch for training
+│   ├── Dockerfile.inference    # FastAPI inference service
+│   ├── Dockerfile.api          # FastAPI backend service
+│   └── Dockerfile.frontend     # Streamlit dashboard
+│
+├── docker-compose.yml          # Full stack orchestration
+├── .github/workflows/ci-cd.yml # GitHub Actions CI/CD
+├── pyproject.toml              # Python package manifest
+└── docs/                       # Epic documentation
+    ├── epic1_data_engineering.md
+    ├── epic2_training.md
+    ├── epic3_email_intelligence.md
+    ├── epic4_dashboard.md
+    ├── epic5_observability.md
+    ├── epic6_deployment.md
+    ├── epic6_registry_health.md
+    └── epic6_mlops_deployment.md
 ```
 
 ---
 
 ## CLI Reference
 
-Run pipeline stages or inspect builds using the Click CLI:
+### Epic 1: Data Engineering (`email-data`)
 
-### 1. Run the Entire Pipeline End-to-End
-Loads settings from `configs/data_engineering.yaml`, imports the specified CSV, runs cleaning/augmentation, partitions datasets, and writes version metadata.
 ```powershell
-uv run email-data pipeline --source data/samples/emails_sample.csv --seed 42
-```
-Options:
-- `-s, --source PATH`: Override the default raw source dataset path.
-- `-v, --version STR`: Force a specific dataset build version (e.g. `v0.2.0`).
-- `--seed INT`: Override the random state seed for reproducible runs.
+# Run the full 8-stage data pipeline
+email-data pipeline --source data/samples/emails_sample.csv --seed 42
 
-### 2. Run Individual Stages (Debugging/Tests)
-```powershell
-# US-1.1: Load and validate raw file schema
-uv run email-data import --source data/samples/emails_sample.csv
+# Individual stages
+email-data import --source data/samples/emails_sample.csv
+email-data normalize --source data/samples/emails_sample.csv
+email-data clean --source data/samples/emails_sample.csv
+email-data augment --source data/samples/emails_sample.csv --seed 42
 
-# US-1.2: Normalise raw labels to project taxonomy
-uv run email-data normalize --source data/samples/emails_sample.csv
-
-# US-1.3: Clean, deduplicate, and redact PII
-uv run email-data clean --source data/samples/emails_sample.csv
-
-# US-1.4: Deterministic synonym/whitespace augmentations
-uv run email-data augment --source data/samples/emails_sample.csv --seed 42
+# Version management
+email-data list-versions
+email-data show-version v0.1.0
+email-data compare-versions v0.1.0 v0.2.0
+email-data stats --version v0.1.0
 ```
 
-### 3. Version Inspection & Comparison
+### Epic 2: Training & Benchmarking (`email-train` & `benchmark_slm.py`)
+
 ```powershell
-# US-1.5: List all processed dataset versions
-uv run email-data list-versions
+# Prepare data from Epic 1 output
+email-train prepare --version v0.1.0
 
-# US-1.5: Output full JSON manifest metadata for a version
-uv run email-data show-version v0.1.0
+# Run LoRA fine-tuning (requires GPU + pip install unsloth trl datasets)
+email-train run --epochs 3 --lora-r 16
 
-# US-1.5: Print a semantic diff between two builds
-uv run email-data compare-versions v0.1.0 v0.2.0
+# Evaluate trained adapter
+email-train evaluate --adapter models/checkpoints/email-intelligence-adapter
 
-# View label distributions across splits
-uv run email-data stats --version v0.1.0
+# Run SLM Project Suitability Benchmark suite (Mock, Local, or HTTP)
+python scripts/benchmark_slm.py --provider mock
+python scripts/benchmark_slm.py --provider local --model-dir ./adapter
+python scripts/benchmark_slm.py --provider http --endpoint http://localhost:8000
+
+# Register to model registry (Epic 6)
+email-train export models/checkpoints/email-intelligence-adapter \
+    --name email-intelligence-adapter --dataset-version v0.1.0 --promote
+```
+
+### Epic 5: Observability (`email-obs`)
+
+```powershell
+# Record an audit event
+email-obs audit record --actor alice@corp.com --action approve --resource email-42
+
+# Query audit trail
+email-obs audit query --actor alice@corp.com
+email-obs audit query --resource email-42 --limit 20 --json
+```
+
+### Epic 6: MLOps (`email-mlops`)
+
+```powershell
+# Model registry
+email-mlops register-model email-intelligence-adapter --adapter-path models/adapters/v1
+email-mlops list-models
+email-mlops promote-model email-intelligence-adapter 1 --stage production
+
+# Health checks
+email-mlops health
+email-mlops health --json
+
+# Deployment
+email-mlops environments
+email-mlops deploy --env staging --dry-run
+email-mlops deploy --env staging
 ```
 
 ---
 
 ## Testing
 
-Execute the complete pytest suite to check unit and integration coverage:
-
 ```powershell
-# Run all tests
-uv run pytest
+# Run all tests (108 pass, 1 skipped — live integration requires running server)
+python -m pytest
 
-# Run with stdout prints
-uv run pytest -s -v
+# Run with coverage
+python -m pytest --cov=src --cov-report=term-missing
 
-# Generate test coverage report
-uv run pytest --cov=src/email_data_engineering --cov-report=term-missing
+# Run specific epic tests
+python -m pytest tests/unit/ -v                        # Epic 1
+python -m pytest tests/epic3/ tests/dashboard/ -v      # Epic 3 + 4
+python -m pytest tests/observability/ -v               # Epic 5
+python -m pytest tests/mlops/ -v                       # Epic 6
 ```
+
+---
+
+## Configuration
+
+| Variable | Default | Description |
+|:---|:---|:---|
+| `DATABASE_URL` | `sqlite+aiosqlite:///./email_slm.db` | Backend API database |
+| `INFERENCE_URL` | `http://localhost:8000` | Inference service URL |
+| `MODEL_PROVIDER` | `mock` | `mock` / `http` / `local` |
+| `MODEL_ENDPOINT` | – | HTTP inference endpoint (for `http` provider) |
+| `MODEL_DIR` | `./adapter` | Path to LoRA adapter (for `local` provider) |
+| `MLFLOW_TRACKING_URI` | `http://localhost:5000` | MLflow server URL |
+| `POSTGRES_USER` | `slm_user` | PostgreSQL user |
+| `POSTGRES_PASSWORD` | `slm_secret` | PostgreSQL password |
+| `POSTGRES_DB` | `email_slm` | PostgreSQL database name |
 
 ---
 
 ## Documentation
 
-Full structural documentation can be found in [docs/epic1_data_engineering.md](file:///e:/FPT/Email%20Intelligence%20SLM/docs/epic1_data_engineering.md).
+| Document | Description |
+|:---|:---|
+| [Epic 1: Data Engineering](docs/epic1_data_engineering.md) | 8-stage pipeline, schema, CLI reference |
+| [Epic 2: Training Pipeline](docs/epic2_training.md) | LoRA fine-tuning, data prep, evaluation |
+| [Epic 3: Email Intelligence](docs/epic3_email_intelligence.md) | Inference gateway, API workflow |
+| [Epic 4/5: Dashboard & Observability](docs/epic4_dashboard.md) | Review UI, logging, metrics, audit |
+| [Epic 5: Safety & Observability](docs/epic5_observability.md) | Logging, metrics, audit trail details |
+| [Epic 6: Model Registry & Health](docs/epic6_registry_health.md) | Model versioning, health probes |
+| [Epic 6: Deployment](docs/epic6_deployment.md) | Automated multi-environment deployment |
+| [Epic 6: MLOps Infrastructure](docs/epic6_mlops_deployment.md) | Docker, CI/CD, experiment tracking |
+| [Adapter Model Card](adapter/README.md) | LoRA adapter details, usage, training info |
+
+---
+
+## License
+
+MIT — FPT Email Intelligence SLM Team

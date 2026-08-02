@@ -25,6 +25,9 @@ ENV/
 reports/
 logs/
 
+# ── MLOps runtime artifacts (US-6.4 model registry) ──────────────────────────
+models/registry/
+
 # ── Build artifacts ───────────────────────────────────────────────────────────
 dist/
 build/
@@ -37,6 +40,7 @@ build/
 htmlcov/
 coverage.xml
 *.coveragerc
+email_intelligence.db
 
 # ── Editors ───────────────────────────────────────────────────────────────────
 .vscode/

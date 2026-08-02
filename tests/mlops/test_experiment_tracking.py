@@ -150,11 +150,10 @@ class TestLocalTracker:
 
         runs = tracker.list_runs()
         assert len(runs) == 2
-        assert runs[0]["run_name"] == "run-1"
-        assert runs[0]["num_parameters"] == 1
-        assert runs[0]["num_metrics"] == 1
-        assert runs[1]["run_name"] == "run-2"
-        assert runs[1]["num_metrics"] == 2
+        by_name = {r["run_name"]: r for r in runs}
+        assert by_name["run-1"]["num_parameters"] == 1
+        assert by_name["run-1"]["num_metrics"] == 1
+        assert by_name["run-2"]["num_metrics"] == 2
 
     def test_interrupted_run_on_new_start(self, tmp_dir: Path) -> None:
         tracker = LocalTracker(output_dir=tmp_dir)

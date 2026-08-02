@@ -1,0 +1,41 @@
+# ── Observability Configuration (Epic 5) ──────────────────────────────────────
+
+# ── Logging (US-5.1) ───────────────────────────────────────────────────────────
+logging:
+  level: "INFO"          # DEBUG | INFO | WARNING | ERROR
+  json: true             # structured JSON lines (searchable)
+  redact: true           # mask PII in messages + sensitive-key values in extra
+  error_log_file: "logs/errors.log"   # ERROR+ also written here (distinct)
+  sensitive_keys:
+    - password
+    - secret
+    - token
+    - api_key
+    - authorization
+    - access_token
+    - refresh_token
+
+# ── Monitoring (US-5.2) ────────────────────────────────────────────────────────
+monitoring:
+  history_size: 288      # bounded samples kept in memory (e.g. 24h @ 5-min)
+  alerts:
+    - name: high_error_rate
+      metric: errors_total
+      comparison: ">"
+      threshold: 25
+      severity: critical
+      message: "Error count exceeded threshold"
+    - name: slow_inference_p95
+      metric: inference_latency_ms.p95
+      comparison: ">"
+      threshold: 3000
+      severity: warning
+    - name: service_unhealthy
+      metric: service_health
+      comparison: "<"
+      threshold: 1
+      severity: critical
+
+# ── Audit trail (US-5.3) ───────────────────────────────────────────────────────
+audit:
+  path: "reports/audit/audit.jsonl"

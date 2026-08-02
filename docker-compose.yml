@@ -48,11 +48,11 @@ services:
     volumes:
       - mlflow_data:/mlflow
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
     networks:
       - slm-network
 
@@ -64,12 +64,19 @@ services:
     container_name: slm-inference
     restart: unless-stopped
     environment:
-      - MODEL_DIR=/app/models
+      - MODEL_PROVIDER=${MODEL_PROVIDER:-local}
+      - MODEL_PROVIDER_CLASS=${MODEL_PROVIDER_CLASS:-}
+      - MODEL_ENDPOINT=${MODEL_ENDPOINT:-}
+      - MODEL_API_TOKEN=${MODEL_API_TOKEN:-}
+      - MODEL_NAME=${MODEL_NAME:-qwen2.5-7b-lora}
+      - MODEL_VERSION=${MODEL_VERSION:-v0.1.0}
+      - MODEL_DIR=/app/adapter
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - LOG_LEVEL=INFO
     ports:
       - "8000:8000"
     volumes:
+      - ./adapter:/app/adapter:ro
       - model_cache:/app/models
       - hf_cache:/app/.cache/huggingface
     depends_on:
@@ -90,6 +97,7 @@ services:
       - INFERENCE_URL=http://inference:8000
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - LOG_LEVEL=INFO
+      - AUTO_CREATE_SCHEMA=true
     ports:
       - "8080:8080"
     depends_on:
@@ -102,6 +110,7 @@ services:
 
   # ── Frontend Dashboard ───────────────────────────────────────────────────
   frontend:
+    profiles: ["epic4"]
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend

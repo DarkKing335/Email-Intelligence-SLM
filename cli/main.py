@@ -92,7 +92,7 @@ def run_pipeline(
     )
 
     if result.success:
-        console.print(f"[bold green]✔ Pipeline Succeeded! Version: {result.version}[/]")
+        console.print(f"[bold green][OK] Pipeline Succeeded! Version: {result.version}[/]")
         # Print summary table of splits
         if result.split_result:
             counts = result.split_result.split_counts
