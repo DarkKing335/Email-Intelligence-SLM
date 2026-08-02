@@ -1,0 +1,44 @@
+# ── Deployment config: PRODUCTION ─────────────────────────────────────────────
+# Production. Deploys pre-built images (no build); strict readiness gate.
+environment: production
+
+compose:
+  files:
+    - "docker-compose.yml"
+  project_name: "email-slm-prod"
+  build: false  # use images published to GHCR by CI, do not build on the host
+  env:
+    LOG_LEVEL: "INFO"
+    POSTGRES_DB: "email_slm"
+
+models:
+  - "reply-style-professional"
+  - "reply-style-friendly"
+  - "reply-style-concise"
+require_models: true  # never deploy prod without an approved model version
+
+health:
+  timeout_seconds: 300
+  interval_seconds: 10
+  dependencies:
+    postgres:
+      type: tcp
+      host: "localhost"
+      port: 5432
+      critical: true
+    mlflow:
+      type: http
+      url: "http://localhost:5000/health"
+      critical: true
+    inference:
+      type: http
+      url: "http://localhost:8000/health"
+      critical: true
+    api:
+      type: http
+      url: "http://localhost:8080/health"
+      critical: true
+    frontend:
+      type: http
+      url: "http://localhost:8501/_stcore/health"
+      critical: false

@@ -77,6 +77,10 @@ jobs:
           python -m pytest tests/ \
             --cov=src/email_data_engineering \
             --cov=src/email_mlops \
+            --cov=src/email_intelligence \
+            --cov=src/email_inference \
+            --cov=src/email_api \
+            --cov=src/email_observability \
             --cov-report=xml:coverage.xml \
             --cov-report=term-missing \
             -v

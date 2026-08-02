@@ -1,0 +1,40 @@
+# ── Deployment config: STAGING ────────────────────────────────────────────────
+# Pre-production. Builds images; gates on all core services incl. inference/api.
+environment: staging
+
+compose:
+  files:
+    - "docker-compose.yml"
+  project_name: "email-slm-staging"
+  build: true
+  env:
+    LOG_LEVEL: "INFO"
+    POSTGRES_DB: "email_slm_staging"
+
+models:
+  - "reply-style-professional"
+  - "reply-style-friendly"
+  - "reply-style-concise"
+require_models: true
+
+health:
+  timeout_seconds: 180
+  interval_seconds: 5
+  dependencies:
+    postgres:
+      type: tcp
+      host: "localhost"
+      port: 5432
+      critical: true
+    mlflow:
+      type: http
+      url: "http://localhost:5000/health"
+      critical: true
+    inference:
+      type: http
+      url: "http://localhost:8000/health"
+      critical: true
+    api:
+      type: http
+      url: "http://localhost:8080/health"
+      critical: true
