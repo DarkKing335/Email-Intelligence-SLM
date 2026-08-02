@@ -1,3 +1,21 @@
+from unsloth import FastLanguageModel
+import torch
+
+# Đường dẫn trỏ thẳng vào Dataset bạn vừa upload
+adapter_path = "/kaggle/working/qwen2.5-unsloth-lora"
+
+print("⏳ Đang tải Base Model và nạp Adapter từ Dataset của bạn...")
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name = adapter_path, 
+    max_seq_length = 1024,
+    dtype = None,
+    load_in_4bit = True,
+)
+
+# Chuyển sang chế độ tối ưu hóa suy luận (Inference)
+FastLanguageModel.for_inference(model)
+print("✅ Mô hình đã sẵn sàng nhận lệnh!")
+
 def extract_email_metadata(email_text):
     system_prompt = "You are a precise data extraction assistant. You must output ONLY a valid JSON object."
     
